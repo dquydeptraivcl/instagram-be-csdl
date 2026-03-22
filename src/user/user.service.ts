@@ -1,26 +1,105 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-
+import { LoginUserDto } from './dto/login-user.dto';
+import { PrismaService } from 'src/prisma/prisma.service';
+import * as bcrypt from 'bcrypt';
+import { JwtService } from '@nestjs/jwt/dist/jwt.service';
 @Injectable()
-export class UserService {
-  create(createUserDto: CreateUserDto) {
-    return 'This action adds a new user';
+  export class UserService {
+  constructor(private prisma: PrismaService, private jwtService: JwtService) {}
+  async create(createUserDto: CreateUserDto) {
+    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+    return this.prisma.user.create({
+      data: {
+        email: createUserDto.email,
+        username: createUserDto.username,
+        password: hashedPassword, // Thay thế mật khẩu gốc bằng bản mã hóa
+        // avatar: createUserDto.avatar, (nếu bạn có dùng avatar thì bật lên)
+      },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        // KHÔNG viết password vào đây, thế là nó sẽ bị giấu đi!
+      }
+    });
+    try {
+      return await this.prisma.user.create({
+        data: createUserDto,
+      });
+    } catch (error) {
+        // Chúng ta sẽ kiểm tra mã lỗi ở đây
+        if (error.code === 'P2002') {
+        // Ném ra một lỗi xung đột (Conflict)
+          throw new ConflictException('Email hoặc Username đã tồn tại');
+        }
+        throw error; // Nếu là lỗi khác thì cứ để nó báo lỗi bình thường
+      }
+    }
+
+  async findAll() {
+    return await this.prisma.user.findMany();
   }
 
-  findAll() {
-    return `This action returns all user`;
+  async findOne(id: number) {
+    if (!id || isNaN(id)) {
+      throw new BadRequestException('ID người dùng không hợp lệ hoặc bị thiếu!');
+    }
+    const user = await this.prisma.user.findUnique({
+      where: { id: id }, // Prisma bị lỗi ở đây vì id đang là undefined
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User với id ${id} không tồn tại`);
+    } 
+    return user;
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} user`;
+  async update(id: number, updateUserDto: UpdateUserDto) {
+    try {
+      return await this.prisma.user.update({
+        where: { id },
+        data: updateUserDto,
+      });
+    } catch (error) {
+      throw new NotFoundException(`Không tìm thấy User với id ${id} để cập nhật`);
+    }
   }
 
-  update(id: number, updateUserDto: UpdateUserDto) {
-    return `This action updates a #${id} user`;
+  async remove(id: number) {
+    try {
+      return await this.prisma.user.delete({
+        where: { id },
+      });
+    } catch (error) {
+      throw new NotFoundException(`Không tìm thấy User với id ${id} để xóa`);
+      }
+    }
+
+  async login(loginUserDto: LoginUserDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { email: loginUserDto.email },
+    });
+    if (!user) {  
+      throw new UnauthorizedException('Email hoặc mật khẩu không đúng');
+    }
+    const isPasswordValid = await bcrypt.compare(loginUserDto.password, user.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Email hoặc mật khẩu không đúng');
+    }
+    const payload = { 
+      sub: user.id, 
+      username: user.username 
+    }; 
+    const accessToken = await this.jwtService.signAsync(payload);
+    return { accessToken };
+  }
+  async getProfile(userId: number) {
+    const user = await this.findOne(userId);
+    
+    const { password, ...result } = user;
+  return result;
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} user`;
-  }
 }

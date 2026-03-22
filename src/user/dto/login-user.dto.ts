@@ -1,15 +1,10 @@
 import { IsEmail, IsString, IsNotEmpty, IsOptional, MinLength } from 'class-validator';
 
-export class CreateUserDto {
+export class LoginUserDto {
   @IsEmail({}, { message: 'Email không hợp lệ' })
   email: string;
-  @IsString({ message: 'Username phải là một chuỗi' })
-  @IsNotEmpty({ message: 'Username không được để trống' })
-  username: string;
   @IsString({ message: 'Password phải là một chuỗi' })
   @IsNotEmpty({ message: 'Password không được để trống' })
   @MinLength(6, { message: 'Password phải có ít nhất 6 ký tự' })
   password: string;
-  @IsOptional({ message: 'Avatar có thể để trống' })
-  avatar?: string; 
 }
