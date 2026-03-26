@@ -7,7 +7,9 @@ import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt/dist/jwt.service';
 @Injectable()
   export class UserService {
+
   constructor(private prisma: PrismaService, private jwtService: JwtService) {}
+
   async create(createUserDto: CreateUserDto) {
     const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
     return this.prisma.user.create({
@@ -21,7 +23,6 @@ import { JwtService } from '@nestjs/jwt/dist/jwt.service';
         id: true,
         email: true,
         username: true,
-        // KHÔNG viết password vào đây, thế là nó sẽ bị giấu đi!
       }
     });
     try {
@@ -95,11 +96,30 @@ import { JwtService } from '@nestjs/jwt/dist/jwt.service';
     const accessToken = await this.jwtService.signAsync(payload);
     return { accessToken };
   }
+
+
   async getProfile(userId: number) {
     const user = await this.findOne(userId);
     
     const { password, ...result } = user;
   return result;
   }
+
+  async updateAvatar(userId: number, avatarFileName: string) {
+    return this.prisma.user.update({
+      where: {
+        id: userId,
+      },
+      data: {
+        avatar: avatarFileName, // Cập nhật tên file vào cột avatar
+      },
+      select: {
+        id: true,
+        username: true,
+        avatar: true, // Trả về thông tin cơ bản kèm ảnh mới để kiểm tra
+      }
+    });
+  }
+
 
 }
