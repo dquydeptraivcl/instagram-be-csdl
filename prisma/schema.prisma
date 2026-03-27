@@ -14,4 +14,16 @@ model User {
   avatar    String?  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  posts    Post[]
+}
+
+model Post {
+  id        Int      @id @default(autoincrement())
+  caption   String?  // Nội dung bài viết (có thể để trống)
+  image     String   // Tên file ảnh (bắt buộc phải có)
+  createdAt DateTime @default(now()) // Tự động lưu thời gian đăng bài
+
+  // --- Khai báo Khóa ngoại ---
+  userId    Int      // 1. Cột thực tế lưu ID của người đăng trong Database
+  user      User     @relation(fields: [userId], references: [id]) // 2. Cách Prisma hiểu mối quan hệ này
 }

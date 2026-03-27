@@ -6,6 +6,7 @@ import { UserModule } from './user/user.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
+import { PostModule } from './post/post.module';
 @Module({
   imports: [
     ServeStaticModule.forRoot({
@@ -14,7 +15,7 @@ import { join } from 'path';
     }),
     ConfigModule.forRoot({ isGlobal: true }), 
     UserModule, 
-    PrismaModule,
+    PrismaModule, PostModule,
     
   ],
   controllers: [AppController],

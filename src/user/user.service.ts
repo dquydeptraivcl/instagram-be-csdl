@@ -11,37 +11,43 @@ import { JwtService } from '@nestjs/jwt/dist/jwt.service';
   constructor(private prisma: PrismaService, private jwtService: JwtService) {}
 
   async create(createUserDto: CreateUserDto) {
-    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
-    return this.prisma.user.create({
-      data: {
-        email: createUserDto.email,
-        username: createUserDto.username,
-        password: hashedPassword, // Thay thế mật khẩu gốc bằng bản mã hóa
-        // avatar: createUserDto.avatar, (nếu bạn có dùng avatar thì bật lên)
-      },
-      select: {
-        id: true,
-        email: true,
-        username: true,
-      }
-    });
     try {
+      // 1. Mã hóa mật khẩu trước
+      const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+
+      // 2. Thực hiện tạo user trong block try để bắt lỗi Prisma
       return await this.prisma.user.create({
-        data: createUserDto,
+        data: {
+          email: createUserDto.email,
+          username: createUserDto.username,
+          password: hashedPassword,
+          avatar: createUserDto.avatar, 
+        },
+        // 3. Chỉ lấy về những thông tin cần thiết, giấu password đi
+        select: {
+          id: true,
+          email: true,
+          username: true,
+          // avatar: true,
+        },
       });
     } catch (error) {
-        // Chúng ta sẽ kiểm tra mã lỗi ở đây
-        if (error.code === 'P2002') {
-        // Ném ra một lỗi xung đột (Conflict)
-          throw new ConflictException('Email hoặc Username đã tồn tại');
-        }
-        throw error; // Nếu là lỗi khác thì cứ để nó báo lỗi bình thường
+      // 4. Nếu Prisma báo lỗi P2002 (trùng lặp dữ liệu Unique)
+      if (error.code === 'P2002') {
+        throw new ConflictException('Email hoặc Username này đã có người sử dụng rồi!');
       }
+      // Nếu là lỗi khác thì ném ra cho NestJS tự xử lý
+      throw error;
     }
+  }
 
   async findAll() {
     return await this.prisma.user.findMany();
   }
+
+  async findByEmail(email: string) {
+  return this.prisma.user.findUnique({ where: { email } });
+}
 
   async findOne(id: number) {
     if (!id || isNaN(id)) {
